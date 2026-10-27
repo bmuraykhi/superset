@@ -284,6 +284,17 @@ function Chart({
     }
   }, [triggerQuery, runQuery]);
 
+  const isAwaitingDatasource = useCallback(
+    (queryResponse: ChartErrorType) =>
+      !queryResponse?.errors?.[0] &&
+      !queryResponse?.message &&
+      chartAlert !== undefined &&
+      chartAlert !== NONEXISTENT_DATASET &&
+      datasource === PLACEHOLDER_DATASOURCE &&
+      datasetsStatus !== ResourceStatus.Error,
+    [chartAlert, datasetsStatus, datasource],
+  );
+
   const renderErrorMessage = useCallback(
     (queryResponse: ChartErrorType) => {
       const error = queryResponse?.errors?.[0];
@@ -292,14 +303,7 @@ function Chart({
       // if datasource is still loading, don't render JS errors
       // but always show backend API errors (structured or message-only)
       // so users can see real issues like auth failures
-      if (
-        !error &&
-        !queryResponse?.message &&
-        chartAlert !== undefined &&
-        chartAlert !== NONEXISTENT_DATASET &&
-        datasource === PLACEHOLDER_DATASOURCE &&
-        datasetsStatus !== ResourceStatus.Error
-      ) {
+      if (isAwaitingDatasource(queryResponse)) {
         return (
           <Styles
             key={chartId}
@@ -330,9 +334,8 @@ function Chart({
       chartId,
       chartStackTrace,
       dashboardId,
-      datasetsStatus,
-      datasource,
       height,
+      isAwaitingDatasource,
     ],
   );
 
@@ -438,7 +441,7 @@ function Chart({
 
   if (datasource?.metadata_error) {
     return (
-      <ErrorContainer height={height}>
+      <ErrorContainer className="chart-container" height={height}>
         {renderErrorMessage({ message: datasource.metadata_error })}
       </ErrorContainer>
     );
@@ -446,7 +449,16 @@ function Chart({
 
   if (chartStatus === 'failed') {
     return (
-      <ErrorContainer height={height}>
+      <ErrorContainer
+        className={
+          queriesResponse?.some(item =>
+            isAwaitingDatasource(item as ChartErrorType),
+          )
+            ? undefined
+            : 'chart-container'
+        }
+        height={height}
+      >
         {queriesResponse?.map(item =>
           renderErrorMessage(item as ChartErrorType),
         )}
